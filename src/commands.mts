@@ -1,6 +1,6 @@
 import { t, type Language } from './i18n.mts'
 
-export const VERSION = 'Rc9'
+export const VERSION = 'b1-Rc9'
 export const commands = [
   { name: 'status', args: '[plugin]', description: 'Show Core and plugin state' },
   { name: 'debug', args: '[module]', description: 'Show all state details; add a module name to inspect it' },

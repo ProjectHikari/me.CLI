@@ -15,7 +15,7 @@ const exec = promisify(execFile)
 test('localization preserves command IDs and arbitrary plugin output', () => {
   assert.equal(t('zh', 'Running'), '运行中')
   assert.equal(t('en', 'Running'), 'Running')
-  assert.equal(t('zh', 'Starting me.init {version}', { version: 'Rc2' }), '正在启动me.init Rc2')
+  assert.equal(t('zh', 'Starting me.init {version}', { version: 'b2-Rc1' }), '正在启动me.init b2-Rc1')
   assert.equal(t('zh', 'arbitrary plugin output'), 'arbitrary plugin output')
   assert.deepEqual(parseCommand('/start me.cli', 'zh'), { method: 'start', plugin: 'me.cli' })
   assert.throws(() => parseCommand('/start', 'zh'), /用法：\/start <插件>/)

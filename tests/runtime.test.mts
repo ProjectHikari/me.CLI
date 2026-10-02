@@ -27,7 +27,7 @@ test('debug is a local view over status and validates module names', async () =>
   assert.deepEqual(debug[0].snapshot, debug[1].snapshot)
   assert.ok(frames.some(frame => frame.type === 'status'))
   const focused = await exec(process.execPath, [path.join(root, 'me.CLI/main.mts'), '--language', 'en', '--plain', '-c', 'debug me.init'])
-  const details = focused.stdout.slice(focused.stdout.indexOf('\nCore Rc1'))
+  const details = focused.stdout.slice(focused.stdout.indexOf('\nCore b1-Rc1'))
   assert.ok(details.includes('Provides: me.init.info'))
   assert.ok(!details.includes('Provides: me.cli.info'))
   await assert.rejects(exec(process.execPath, [path.join(root, 'me.CLI/main.mts'), '--language', 'en', '--plain', '-c', 'debug missing']), error => {

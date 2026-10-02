@@ -4,7 +4,7 @@ import { statusLines } from '../src/status.mts'
 import { Terminal } from '../src/terminal.mts'
 import type { Snapshot } from '../src/protocol.mts'
 
-const snapshot = (): Snapshot => ({ version: 'Rc1', state: 'running', stats: {}, plugins: [
+const snapshot = (): Snapshot => ({ version: 'b1-Rc1', state: 'running', stats: {}, plugins: [
   { id: 'provider', state: 'Running', enabled: true, generation: 1, missing: [], provides: ['info'], resources: [
     { label: 'service: info', kind: 'service', dirty: false },
     { label: 'reader', kind: 'task', dirty: false },
@@ -78,7 +78,7 @@ test('core debug shows runtime counters without plugin details', () => {
   const data = snapshot()
   data.stats = { Plugins: 2, Services: 1, Resources: 3, Dirty: 1 }
   const text = statusLines(data, 'zh', text => text, 'core', { debug: true }).join('\n')
-  assert.ok(text.includes('Core Rc1'))
+  assert.ok(text.includes('Core b1-Rc1'))
   assert.ok(text.includes('资源: 3'))
   assert.ok(!text.includes('provider'))
 })

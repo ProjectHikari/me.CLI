@@ -13,7 +13,7 @@ function fixture(): Screen {
     line: '', cursor: 0, previous: [], previousCursor: '', consoleLines: [], consoleScroll: 0,
     logs: [], logScroll: 0, stateScroll: 0, errors: new Set<string>(),
     frame: [], clipboard: { cancel: () => {}, copy: async () => 'confirmed', close: () => {} }, history: [], historyIndex: -1, draft: '', completionIndex: 0, completionQuery: '', dismissedCompletion: '',
-    snapshot: { version: 'Rc1', state: 'running', stats: { Plugins: 2, Services: 2, Resources: 12, Dirty: 0 }, plugins: [
+    snapshot: { version: 'b1-Rc1', state: 'running', stats: { Plugins: 2, Services: 2, Resources: 12, Dirty: 0 }, plugins: [
       { id: 'me.cli', state: 'Running', enabled: true, generation: 2, missing: [], resources: [] },
       { id: 'me.init', state: 'Running', enabled: true, generation: 1, missing: [], resources: [] },
     ] } satisfies Snapshot,
@@ -52,7 +52,7 @@ test('header highlights the selected page and healthy modules stay hidden', () =
   const screen = fixture()
   const output = render(screen)
   assert.ok(output.includes(`me.CLI ${VERSION}`))
-  assert.ok(!output.includes('Core Rc1'))
+  assert.ok(!output.includes('Core b1-Rc1'))
   assert.ok(output.includes('\x1b[1;97m控制台'))
   assert.ok(output.includes('\x1b[90m日志'))
   assert.ok(output.includes('\x1b[90m状态'))
