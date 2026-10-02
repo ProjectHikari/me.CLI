@@ -1,11 +1,12 @@
 import { t, type Language } from './i18n.mts'
 
-export const VERSION = 'b1-Rc9'
+export const VERSION = 'b1-Rc10'
 export const commands = [
   { name: 'status', args: '[plugin]', description: 'Show Core and plugin state' },
   { name: 'debug', args: '[module]', description: 'Show all state details; add a module name to inspect it' },
   { name: 'plugins', args: '', description: 'List registered plugins' },
   { name: 'mount', args: 'plugins <path>', description: 'Mount and save a plugin' },
+  { name: 'unmount', args: 'plugins <plugin>', description: 'Unmount a plugin and remove it from startup configuration' },
   { name: 'console', args: '', description: 'Open the console page' },
   { name: 'logs', args: '', description: 'Open the live log page' },
   { name: 'clear', args: '', description: 'Clear console output' },
@@ -41,6 +42,10 @@ export function parseCommand(line: string, language: Language = 'en'): Command |
     if (!path.trim()) throw new CommandError(usage)
     return { method: 'mount', path }
   }
+  if (name === 'unmount') {
+    if (parts.length !== 3 || parts[1] !== 'plugins' || /["']/.test(parts[2])) throw new CommandError(usage)
+    return { method: 'unmount', plugin: parts[2] }
+  }
   if (parts.length > 2 || (!spec.args && parts.length > 1)) throw new CommandError(usage)
   if (spec.args.startsWith('<') && !parts[1]) throw new CommandError(usage)
   return { method: name === 'plugins' ? 'status' : name === 'quit' ? 'shutdown' : name, ...(parts[1] ? { plugin: parts[1] } : {}) }
@@ -48,12 +53,14 @@ export function parseCommand(line: string, language: Language = 'en'): Command |
 
 export function complete(line: string, plugins: string[]): [string[], string] {
   const slash = line.startsWith('/') ? '/' : ''
-  const mount = line.match(/^\/?mount\s+(\S*)$/i)
-  if (mount) return [['plugins'].filter(value => value.startsWith(mount[1])), mount[1]]
+  const category = line.match(/^\/?(?:mount|unmount)\s+(\S*)$/i)
+  if (category) return [['plugins'].filter(value => value.startsWith(category[1])), category[1]]
+  const unmount = line.match(/^\/?unmount\s+plugins\s+(\S*)$/i)
+  if (unmount) return [plugins.filter(id => id.startsWith(unmount[1])), unmount[1]]
   const match = line.match(/^(\/?\S+)\s+(\S*)$/)
   if (match) {
     const spec = commands.find(command => command.name === match[1].replace(/^\//, ''))
-    if (!spec?.args || spec.name === 'mount') return [[], line]
+    if (!spec?.args || spec.name === 'mount' || spec.name === 'unmount') return [[], line]
     return [(spec.name === 'debug' ? [...plugins, 'core'] : plugins).filter(id => id.startsWith(match[2])), match[2]]
   }
   const choices = commands.map(command => slash + command.name)

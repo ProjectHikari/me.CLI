@@ -29,7 +29,7 @@ async function main(): Promise<number> {
       ['-c command', 'Run a command; repeat for a sequence'], ['--plain', 'Disable colors'],
       ['--json', 'Emit JSON Lines'], ['--inline', 'Use terminal scrollback instead of fixed pages'], ['-v, --version', 'Show version'],
     ]) console.log('  ' + flag.padEnd(20) + t(language, description))
-    console.log('\n' + t(language, 'Commands') + ': status, debug, plugins, mount, clear, start, stop, reload, retryCleanup, help, quit')
+    console.log('\n' + t(language, 'Commands') + ': status, debug, plugins, mount, unmount, clear, start, stop, reload, retryCleanup, help, quit')
     return 0
   }
   const terminal = new Terminal(Boolean(values.plain), Boolean(values.json), interactive, language, Boolean(values.inline))
@@ -78,7 +78,7 @@ async function main(): Promise<number> {
         return
       }
       if (active) { log('warn', 'An operation is still running. Esc or Ctrl+C requests cancellation'); return }
-      if (command.method === 'mount') terminal.page('console')
+      if (command.method === 'mount' || command.method === 'unmount') terminal.page('console')
       const previous = new Set(client.snapshot?.plugins.map(plugin => plugin.id))
       const request = client.request(command.method, command.plugin, command.path ? path.resolve(command.path) : undefined)
       active = request.id
