@@ -48,6 +48,26 @@ test('mount completion keeps required arguments editable before execution', () =
   assert.equal(executed, true)
 })
 
+test('unmount menu completes the category and registered plugin before execution', () => {
+  const screen = fixture()
+  let submitted = ''
+  screen.on('line', line => { submitted = line })
+  screen.line = '/unmount'; screen.cursor = screen.line.length
+  screen.key('', { name: 'return' })
+  assert.equal(screen.line, '/unmount ')
+  assert.equal(submitted, '')
+  screen.dismissedCompletion = ''
+  screen.key('', { name: 'tab' })
+  assert.equal(screen.line, '/unmount plugins')
+  screen.insert(' me.i')
+  assert.deepEqual(screen.suggestions().map(item => item.value), ['me.init'])
+  screen.key('', { name: 'return' })
+  assert.equal(screen.line, '/unmount plugins me.init')
+  assert.equal(submitted, '')
+  screen.key('', { name: 'return' })
+  assert.equal(submitted, '/unmount plugins me.init')
+})
+
 test('header highlights the selected page and healthy modules stay hidden', () => {
   const screen = fixture()
   const output = render(screen)

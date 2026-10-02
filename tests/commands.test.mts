@@ -13,6 +13,8 @@ test('slash commands validate arguments before calling the host', () => {
   assert.deepEqual(parseCommand('/mount plugins /qq'), { method: 'mount', path: '/qq' })
   assert.deepEqual(parseCommand('/mount plugins "./plugins/qq bot"'), { method: 'mount', path: './plugins/qq bot' })
   assert.deepEqual(parseCommand("/Mount plugins './plugins/qq bot'"), { method: 'mount', path: './plugins/qq bot' })
+  assert.deepEqual(parseCommand('/unmount plugins me.onebot'), { method: 'unmount', plugin: 'me.onebot' })
+  assert.deepEqual(parseCommand('/Unmount plugins me.chatluna'), { method: 'unmount', plugin: 'me.chatluna' })
   assert.equal(parseCommand('  '), undefined)
   assert.throws(() => parseCommand('/start'), /Usage/)
   assert.throws(() => parseCommand('/stop me.init extra'), /Usage/)
@@ -22,6 +24,10 @@ test('slash commands validate arguments before calling the host', () => {
   for (const line of ['/mount', '/mount plugins', '/mount qq ./qq', '/mount plugins ./qq extra', '/mount plugins ""', '/mount plugins "./qq']) {
     assert.throws(() => parseCommand(line), /Usage/)
   }
+  for (const line of ['/unmount', '/unmount plugins', '/unmount me.onebot', '/unmount qq me.onebot', '/unmount plugins me.onebot extra', '/unmount plugins "me.onebot"']) {
+    assert.throws(() => parseCommand(line), /Usage/)
+  }
+  assert.throws(() => parseCommand('/unmount plugins', 'zh'), /用法：\/unmount plugins <插件>/)
 })
 
 test('completion distinguishes command names from plugin IDs', () => {
@@ -32,6 +38,9 @@ test('completion distinguishes command names from plugin IDs', () => {
   assert.deepEqual(complete('/debug co', ['me.init']), [['core'], 'co'])
   assert.deepEqual(complete('/mount pl', ['me.init']), [['plugins'], 'pl'])
   assert.deepEqual(complete('/mount plugins ', ['me.init']), [[], '/mount plugins '])
+  assert.deepEqual(complete('/unmount pl', ['me.onebot']), [['plugins'], 'pl'])
+  assert.deepEqual(complete('/unmount plugins me.o', ['me.chatluna', 'me.onebot']), [['me.onebot'], 'me.o'])
+  assert.deepEqual(complete('/unmount plugins ', ['me.chatluna', 'me.onebot']), [['me.chatluna', 'me.onebot'], ''])
 })
 
 test('plugin output cannot execute terminal control sequences', () => {

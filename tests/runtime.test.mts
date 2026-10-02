@@ -42,7 +42,7 @@ async function stop(client: Client): Promise<void> {
   await client.closed
 }
 
-test('mount commands load TS/Python manifests and persist them for the next launch', { timeout: 200_000 }, async t => {
+test('mount and unmount persist TS/Python lifecycle changes across launches', { timeout: 200_000 }, async t => {
   const directory = await mkdtemp(path.join(tmpdir(), 'me-cli-mount-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
   const config = path.join(directory, 'plugins.json')
@@ -82,6 +82,24 @@ run(start)
   await assert.rejects(client.request('mount', undefined, ts).result, /already configured/)
   await assert.rejects(client.request('mount', undefined, path.join(directory, 'missing')).result, /no such file/)
   assert.equal(await readFile(config, 'utf8'), before)
+  await stop(client)
+  const unmounted = await exec(process.execPath, [path.join(root, 'me.CLI/main.mts'), '--config', config, '--language', 'zh', '--json',
+    '-c', '/unmount plugins fixture.ts', '-c', '/status'])
+  const unmountFrames = unmounted.stdout.trim().split('\n').map(line => JSON.parse(line))
+  const remaining = unmountFrames.filter(frame => frame.type === 'status').at(-1).snapshot as Snapshot
+  assert.deepEqual(remaining.plugins.map(item => item.id), ['fixture.py'])
+  assert.equal(plugin(remaining, 'fixture.py').state, 'Waiting')
+  assert.deepEqual(plugin(remaining, 'fixture.py').missing, ['fixture.ts.info'])
+  assert.ok(unmountFrames.some(frame => frame.type === 'log' && frame.message === '已卸载fixture.ts'))
+  assert.deepEqual(JSON.parse(await readFile(config, 'utf8')).plugins.map((item: { id: string }) => item.id), ['fixture.py'])
+  assert.ok((await readFile(path.join(ts, 'plugin.mts'), 'utf8')).includes('fixture.ts.info'))
+  const restarted = new Client('python3', root, config)
+  t.after(() => stop(restarted))
+  const afterRestart = await restarted.ready
+  assert.deepEqual(afterRestart.plugins.map(item => item.id), ['fixture.py'])
+  assert.equal(plugin(afterRestart, 'fixture.py').state, 'Waiting')
+  const remounted = await restarted.request('mount', undefined, ts).result
+  assert.ok(remounted.plugins.every(item => item.state === 'Running'))
 })
 
 test('real TS/Python bodies follow dependencies, reload and dispose to baseline', { timeout: 200_000 }, async t => {
@@ -210,7 +228,7 @@ test('clear preserves the runtime and invalid commands report FAILED', { timeout
   assert.equal(states.length, 2)
   assert.deepEqual(states[0], states[1])
   assert.ok(frames.some(frame => frame.type === 'clear'))
-  for (const command of ['unknown', 'stop', 'stop missing']) {
+  for (const command of ['unknown', 'stop', 'stop missing', 'unmount plugins missing']) {
     await assert.rejects(exec(process.execPath, [path.join(root, 'me.CLI/main.mts'), '--language', 'en', '--json', '-c', command]), (error: unknown) => {
       const output = (error as { stdout: string }).stdout.trim().split('\n').map(line => JSON.parse(line))
       assert.ok(output.some(frame => frame.type === 'log' && frame.source === 'me.cli' && frame.level === 'failed'))
