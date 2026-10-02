@@ -112,13 +112,16 @@ test('real TS/Python bodies follow dependencies, reload and dispose to baseline'
   assert.deepEqual(plugin(ready, 'me.init').provides, ['me.init.info'])
   const baseline = ready.stats.Resources
   const generation = plugin(ready, 'me.cli').generation
-  const stopped = await client.request('stop', 'me.init').result
-  assert.equal(plugin(stopped, 'me.cli').state, 'Waiting')
-  assert.equal(plugin(stopped, 'me.init').state, 'Stopped')
-  assert.equal(stopped.stats.Resources, 0)
-  const started = await client.request('start', 'me.init').result
-  assert.equal(plugin(started, 'me.cli').state, 'Running')
-  assert.ok(plugin(started, 'me.cli').generation > generation)
+  for (const method of ['stop', 'unmount']) {
+    for (const id of ['core', 'me.init', 'me.cli']) {
+      await assert.rejects(client.request(method, id).result, /critical module/)
+      assert.deepEqual(client.snapshot, ready)
+    }
+  }
+  const restarted = await client.request('reload', 'me.init').result
+  assert.ok(restarted.plugins.every(item => item.state === 'Running'))
+  assert.ok(plugin(restarted, 'me.cli').generation > generation)
+  assert.equal(restarted.stats.Resources, baseline)
   for (let i = 0; i < 3; i++) {
     const reloaded = await client.request('reload', 'me.cli').result
     assert.equal(reloaded.stats.Resources, baseline)
@@ -228,7 +231,7 @@ test('clear preserves the runtime and invalid commands report FAILED', { timeout
   assert.equal(states.length, 2)
   assert.deepEqual(states[0], states[1])
   assert.ok(frames.some(frame => frame.type === 'clear'))
-  for (const command of ['unknown', 'stop', 'stop missing', 'unmount plugins missing']) {
+  for (const command of ['unknown', 'stop', 'stop missing', 'unmount plugins missing', 'stop me.init', 'unmount plugins me.cli']) {
     await assert.rejects(exec(process.execPath, [path.join(root, 'me.CLI/main.mts'), '--language', 'en', '--json', '-c', command]), (error: unknown) => {
       const output = (error as { stdout: string }).stdout.trim().split('\n').map(line => JSON.parse(line))
       assert.ok(output.some(frame => frame.type === 'log' && frame.source === 'me.cli' && frame.level === 'failed'))
