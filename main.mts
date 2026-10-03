@@ -29,7 +29,7 @@ async function main(): Promise<number> {
       ['-c command', 'Run a command; repeat for a sequence'], ['--plain', 'Disable colors'],
       ['--json', 'Emit JSON Lines'], ['--inline', 'Use terminal scrollback instead of fixed pages'], ['-v, --version', 'Show version'],
     ]) console.log('  ' + flag.padEnd(20) + t(language, description))
-    console.log('\n' + t(language, 'Commands') + ': status, debug, plugins, mount, unmount, clear, start, stop, reload, retryCleanup, help, quit')
+    console.log('\n' + t(language, 'Commands') + ': status, debug, plugins, mount, unmount, log, clear, start, stop, reload, retryCleanup, help, quit')
     return 0
   }
   const terminal = new Terminal(Boolean(values.plain), Boolean(values.json), interactive, language, Boolean(values.inline))
@@ -68,6 +68,16 @@ async function main(): Promise<number> {
       if (!command) return
       if (command.method === 'help') { terminal.help(); return }
       if (command.method === 'clear') { terminal.clear(); return }
+      if (command.method === 'log') {
+        if (!command.path) { terminal.showLogs(command.levels); return }
+        terminal.page('console')
+        try {
+          const result = await terminal.logBuffer.export(command.path)
+          terminal.log({ type: 'log', time: new Date().toISOString(), source: 'me.cli', level: 'ok', message: t(language, 'Exported {count} log lines to {path}', result) })
+          if (terminal.screen && !terminal.screen.closed) terminal.write('  ' + terminal.text('Exported {count} log lines to {path}', result))
+        } catch (error) { throw new CommandError(t(language, 'Log export failed: {error}', { error: error instanceof Error ? error.message : String(error) })) }
+        return
+      }
       if (command.method === 'console' || command.method === 'logs') { terminal.page(command.method); return }
       if (command.method === 'shutdown') { await close(); return }
       if (command.method === 'status' || command.method === 'debug') {
@@ -144,7 +154,7 @@ async function main(): Promise<number> {
           if (interactive) {
             try {
               const command = parseCommand(line, language)
-              if (command?.method === 'help' || command?.method === 'clear' || command?.method === 'console' || command?.method === 'logs') {
+              if (command?.method === 'help' || command?.method === 'clear' || command?.method === 'console' || command?.method === 'logs' || command?.method === 'log') {
                 void execute(line).finally(() => terminal.prompt())
                 return
               }
@@ -153,7 +163,7 @@ async function main(): Promise<number> {
           if (interactive && active) {
             try {
               const command = parseCommand(line, language)
-              if (command?.method === 'status' || command?.method === 'debug' || command?.method === 'help' || command?.method === 'clear' || command?.method === 'console' || command?.method === 'logs') {
+              if (command?.method === 'status' || command?.method === 'debug' || command?.method === 'help' || command?.method === 'clear' || command?.method === 'console' || command?.method === 'logs' || command?.method === 'log') {
                 void execute(line).finally(() => terminal.prompt())
                 return
               }

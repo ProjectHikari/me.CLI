@@ -5,6 +5,7 @@ import { t, type Language } from './i18n.mts'
 import { clean, colors, pad, errorModules } from './display.mts'
 import { Screen, type Page } from './screen.mts'
 import { statusLines } from './status.mts'
+import { LogBuffer } from './logs.mts'
 export { clean } from './display.mts'
 
 export class Terminal {
@@ -15,6 +16,9 @@ export class Terminal {
   screen?: Screen
   fixed: boolean
   logs: string[] = []
+  logBuffer = new LogBuffer()
+  logFilter: string[] = []
+  currentPage: Page = 'console'
   errors = new Set<string>()
   errorMessages = new Map<string, string>()
   root = ''
@@ -36,6 +40,7 @@ export class Terminal {
 
   createScreen(root: string): Screen {
     const screen = new Screen(this.language, this.color, root, VERSION, this.logs, this.errors, this.errorMessages)
+    screen.logFilter = this.logFilter.slice()
     screen.on('copyFailed', error => this.log({ type: 'log', time: new Date().toISOString(), level: 'failed', source: 'me.cli', message: this.text('Copy failed: {error}', { error: String(error) }) }))
     return screen
   }
@@ -60,7 +65,9 @@ export class Terminal {
   }
 
   log(event: Log): void {
-    if (this.json) { this.write(JSON.stringify(event)); return }
+    this.logBuffer.append(event)
+    const visible = this.currentPage !== 'logs' || !this.logFilter.length || this.logFilter.includes(event.level.toUpperCase())
+    if (this.json) { if (visible) this.write(JSON.stringify(event)); return }
     const level = event.level.toLowerCase()
     const tag = ['info', 'ok', 'warn', 'error', 'failed'].includes(level) ? level : 'info'
     const timestamp = Number.isNaN(Date.parse(event.time)) ? '' : new Date(event.time).toLocaleTimeString('en-GB')
@@ -74,7 +81,7 @@ export class Terminal {
       if (this.screen && !this.screen.closed) {
         this.screen.appendLog(formatted)
         if (!this.screen.ready || source === 'me.cli' && ['warn', 'error', 'failed'].includes(tag)) this.screen.append(formatted)
-      } else this.write(formatted)
+      } else if (visible) this.write(formatted)
     }
   }
 
@@ -99,6 +106,7 @@ export class Terminal {
   }
 
   help(): void {
+    this.currentPage = 'console'
     const localized = commands.map(command => ({ ...command, args: this.text(command.args), description: this.text(command.description) }))
     if (this.json) { this.write(JSON.stringify({ type: 'help', commands: localized })); return }
     const lines = localized.map(command => `  ${this.style(pad('/' + command.name + ' ' + command.args, 28), '\x1b[97m')}${command.description}`)
@@ -110,6 +118,7 @@ export class Terminal {
   }
 
   clear(): void {
+    this.currentPage = 'console'
     if (this.json) { this.write(JSON.stringify({ type: 'clear', page: 'console' })); return }
     if (this.screen && !this.screen.closed) { this.screen.clear(); return }
     if (process.stdout.isTTY) process.stdout.write('\x1b[2J\x1b[H')
@@ -129,8 +138,17 @@ export class Terminal {
   }
 
   page(page: Page): void {
+    this.currentPage = page
     if (this.screen && !this.screen.closed) this.screen.setPage(page)
-    else if (page === 'logs') this.write(this.logs.join('\n'))
+    else if (page === 'logs') this.showLogs(this.logFilter)
+  }
+
+  showLogs(levels: string[] = []): void {
+    this.currentPage = 'logs'
+    this.logFilter = levels.slice()
+    if (this.json) { this.write(JSON.stringify({ type: 'logs', levels, logs: this.logBuffer.select(levels) })); return }
+    if (this.screen && !this.screen.closed) { this.screen.filterLogs(levels); return }
+    this.write(this.logs.filter(line => !levels.length || levels.includes(clean(line).trimStart().match(/^\[([A-Z]+)\]/)?.[1] ?? '')).join('\n'))
   }
 
   openInput(): readline.Interface | Screen {

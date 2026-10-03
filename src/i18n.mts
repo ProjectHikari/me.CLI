@@ -6,9 +6,10 @@ import readline from 'node:readline/promises'
 
 export type Language = 'zh' | 'en'
 const catalog: Record<string, Record<string, string>> = JSON.parse(readFileSync(new URL('../../me.init/locale.json', import.meta.url), 'utf8'))
+const local: Record<string, Record<string, string>> = JSON.parse(readFileSync(new URL('../locale.json', import.meta.url), 'utf8'))
 
 export function t(language: Language, template: string, params: Record<string, string | number> = {}): string {
-  return (catalog[language]?.[template] ?? template).replace(/\{(\w+)\}/g, (match, name: string) => name in params ? String(params[name]) : match)
+  return (local[language]?.[template] ?? catalog[language]?.[template] ?? template).replace(/\{(\w+)\}/g, (match, name: string) => name in params ? String(params[name]) : match)
 }
 
 export function languageValue(value: string | undefined): Language | undefined {

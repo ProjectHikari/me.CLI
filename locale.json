@@ -1,0 +1,8 @@
+{
+  "zh": {
+    "[level ...] | out <path>": "[级别 ...] | out <路径>",
+    "Filter logs by level, or export all retained logs (up to 1000 lines) to a new file": "按级别筛选日志，或将保留日志导出到新文件（最多1000行）",
+    "Exported {count} log lines to {path}": "已导出{count}行日志到{path}",
+    "Log export failed: {error}": "日志导出失败: {error}"
+  }
+}

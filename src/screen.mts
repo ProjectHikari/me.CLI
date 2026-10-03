@@ -31,6 +31,7 @@ export class Screen extends EventEmitter {
   dismissedCompletion = ''
   consoleLines: string[] = []
   logs: string[] = []
+  logFilter: string[] = []
   errors: Set<string>
   errorMessages: Map<string, string>
   logScroll = 0
@@ -87,11 +88,15 @@ export class Screen extends EventEmitter {
 
   appendLog(line: string): void {
     this.logs.push(line)
-    if (this.logScroll) this.logScroll++
+    if (this.logScroll && this.matchesLog(line)) this.logScroll++
     if (this.logs.length > limit) this.logs.shift()
-    this.logScroll = Math.min(this.logScroll, this.logs.length)
+    this.logScroll = Math.min(this.logScroll, this.visibleLogs().length)
     this.schedule()
   }
+
+  matchesLog(line: string): boolean { return !this.logFilter?.length || this.logFilter.includes(clean(line).trimStart().match(/^\[([A-Z]+)\]/)?.[1] ?? '') }
+  visibleLogs(): string[] { return this.logs.filter(line => this.matchesLog(line)) }
+  filterLogs(levels: string[]): void { this.logFilter = levels.slice(); this.logScroll = 0; this.setPage('logs') }
 
   setSnapshot(snapshot: Snapshot, focus?: string): void { this.snapshot = snapshot; this.focus = focus; this.schedule() }
   setPage(page: Page): void { this.clearSelection(); this.page = page; this.schedule(); this.emit('page', page) }
@@ -204,7 +209,7 @@ export class Screen extends EventEmitter {
     const visible = this.bodyRows()
     if (!visible) return
     if (this.page === 'status') this.stateScroll = Math.max(0, Math.min(Math.max(0, this.stateLines().length - visible), this.stateScroll - older))
-    else if (this.page === 'logs') this.logScroll = Math.max(0, Math.min(Math.max(0, this.logs.length - visible), this.logScroll + older))
+    else if (this.page === 'logs') this.logScroll = Math.max(0, Math.min(Math.max(0, this.visibleLogs().length - visible), this.logScroll + older))
     else this.consoleScroll = Math.max(0, Math.min(Math.max(0, this.consoleLines.length - visible), this.consoleScroll + older))
     if (older !== 0) this.schedule()
   }
@@ -233,6 +238,7 @@ export class Screen extends EventEmitter {
       hint = this.text(this.page === 'console' ? '/help - Tab complete - Ctrl+D exit - Ctrl+number pages' : 'Ctrl+number switch pages')
       if (width(hint) > columns) hint = this.text('Ctrl+number switch pages')
     }
+    if (this.page === 'logs' && this.logFilter?.length) hint = this.logFilter.join(' ') + ' - ' + hint
     if (this.selection) hint = this.text('Right click or Ctrl+C copy - Esc cancel selection')
     if (this.copyFeedback) hint = this.copyFeedback
     const footer = [...this.footer(rows), ...this.menu(), this.style('› ', colors.info) + clean(input), this.style(hint, this.copyFeedback ? this.copyFeedbackColor : undefined)]
@@ -240,8 +246,8 @@ export class Screen extends EventEmitter {
     this.scroll(0)
     let body: string[]
     if (this.page === 'logs') {
-      const end = Math.max(0, this.logs.length - this.logScroll)
-      body = this.logs.slice(Math.max(0, end-bodyRows), end)
+      const logs = this.visibleLogs(), end = Math.max(0, logs.length - this.logScroll)
+      body = logs.slice(Math.max(0, end-bodyRows), end)
     } else if (this.page === 'status') body = this.stateLines().slice(this.stateScroll, this.stateScroll + bodyRows)
     else {
       const end = Math.max(0, this.consoleLines.length - this.consoleScroll)
