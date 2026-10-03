@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import readline from 'node:readline'
 import { commands, complete } from './commands.mts'
-import { clean, colors, fit, width, errorModules } from './display.mts'
+import { clean, colors, fit, width, wrap, errorModules } from './display.mts'
 import { t, type Language } from './i18n.mts'
 import type { Snapshot } from './protocol.mts'
 import { Keyboard } from './keyboard.mts'
@@ -32,6 +32,7 @@ export class Screen extends EventEmitter {
   consoleLines: string[] = []
   logs: string[] = []
   logFilter: string[] = []
+  logLayout?: { columns: number; rows: Map<string, string[]> }
   errors: Set<string>
   errorMessages: Map<string, string>
   logScroll = 0
@@ -88,14 +89,22 @@ export class Screen extends EventEmitter {
 
   appendLog(line: string): void {
     this.logs.push(line)
-    if (this.logScroll && this.matchesLog(line)) this.logScroll++
-    if (this.logs.length > limit) this.logs.shift()
-    this.logScroll = Math.min(this.logScroll, this.visibleLogs().length)
+    if (this.logScroll && this.matchesLog(line)) this.logScroll += this.wrapLog(line).length
+    if (this.logs.length > limit) this.logLayout?.rows.delete(this.logs.shift()!)
+    this.logScroll = Math.min(this.logScroll, this.logRows().length)
     this.schedule()
   }
 
   matchesLog(line: string): boolean { return !this.logFilter?.length || this.logFilter.includes(clean(line).trimStart().match(/^\[([A-Z]+)\]/)?.[1] ?? '') }
   visibleLogs(): string[] { return this.logs.filter(line => this.matchesLog(line)) }
+  wrapLog(line: string): string[] {
+    const columns = Math.max(1, process.stdout.columns || 80)
+    if (this.logLayout?.columns !== columns) this.logLayout = { columns, rows: new Map() }
+    let rows = this.logLayout.rows.get(line)
+    if (!rows) { rows = wrap(line, columns); this.logLayout.rows.set(line, rows) }
+    return rows
+  }
+  logRows(): string[] { return this.visibleLogs().flatMap(line => this.wrapLog(line)) }
   filterLogs(levels: string[]): void { this.logFilter = levels.slice(); this.logScroll = 0; this.setPage('logs') }
 
   setSnapshot(snapshot: Snapshot, focus?: string): void { this.snapshot = snapshot; this.focus = focus; this.schedule() }
@@ -209,7 +218,7 @@ export class Screen extends EventEmitter {
     const visible = this.bodyRows()
     if (!visible) return
     if (this.page === 'status') this.stateScroll = Math.max(0, Math.min(Math.max(0, this.stateLines().length - visible), this.stateScroll - older))
-    else if (this.page === 'logs') this.logScroll = Math.max(0, Math.min(Math.max(0, this.visibleLogs().length - visible), this.logScroll + older))
+    else if (this.page === 'logs') this.logScroll = Math.max(0, Math.min(Math.max(0, this.logRows().length - visible), this.logScroll + older))
     else this.consoleScroll = Math.max(0, Math.min(Math.max(0, this.consoleLines.length - visible), this.consoleScroll + older))
     if (older !== 0) this.schedule()
   }
@@ -246,7 +255,7 @@ export class Screen extends EventEmitter {
     this.scroll(0)
     let body: string[]
     if (this.page === 'logs') {
-      const logs = this.visibleLogs(), end = Math.max(0, logs.length - this.logScroll)
+      const logs = this.logRows(), end = Math.max(0, logs.length - this.logScroll)
       body = logs.slice(Math.max(0, end-bodyRows), end)
     } else if (this.page === 'status') body = this.stateLines().slice(this.stateScroll, this.stateScroll + bodyRows)
     else {

@@ -12,6 +12,21 @@ import { parseCommand, complete } from '../src/commands.mts'
 import { Screen } from '../src/screen.mts'
 import { Terminal } from '../src/terminal.mts'
 import { t } from '../src/i18n.mts'
+import { wrap, width, clean } from '../src/display.mts'
+
+test('long colored logs wrap without dropping text and keep the reading position during new output', () => {
+  const text = '\x1b[31m[INFO]\x1b[0m  me.chatluna  ' + '完整模型输入'.repeat(50) + 'END'
+  const rows = wrap(text, 40)
+  assert.ok(rows.length > 2); assert.ok(rows.every(row => width(row) <= 40))
+  assert.equal(rows.map(clean).join(''), clean(text))
+  const screen = Object.assign(new EventEmitter(), { logs: [text], logScroll: 1, logFilter: ['INFO'], schedule: () => {}, clipboard: { cancel: () => {} } })
+  Object.setPrototypeOf(screen, Screen.prototype)
+  const view = screen as unknown as Screen, before = view.logRows().length
+  view.appendLog(text + 'more')
+  assert.equal(view.logScroll, 1 + view.wrapLog(text + 'more').length)
+  assert.ok(view.logRows().length > before); assert.match(view.logRows().map(clean).join(''), /ENDmore/)
+  view.appendLog('[WARN] excluded'); assert.equal(view.logRows().length, before + view.wrapLog(text + 'more').length)
+})
 
 test('log commands accept levels and quoted export paths without calling Core', () => {
   assert.deepEqual(parseCommand('/log'), { method: 'log', levels: [] })

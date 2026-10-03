@@ -23,6 +23,19 @@ export function cellWidth(char: string): number {
 export function width(text: string): number { return Array.from(clean(text)).reduce((sum, char) => sum + cellWidth(char), 0) }
 export function pad(text: string, columns: number): string { return text + ' '.repeat(Math.max(0, columns - width(text))) }
 
+export function wrap(text: string, columns: number): string[] {
+  const rows: string[] = []
+  let line = '', used = 0, color = ''
+  for (const token of text.match(/\x1b\[[0-9;]*m|[^]/gu) ?? []) {
+    if (token.startsWith('\x1b[')) { line += token; color = token === '\x1b[0m' ? '' : color + token; continue }
+    const cells = cellWidth(token)
+    if (used && used + cells > columns) { rows.push(line + '\x1b[0m'); line = color; used = 0 }
+    line += token; used += cells
+  }
+  rows.push(line + '\x1b[0m')
+  return rows
+}
+
 export function fit(text: string, columns: number): string {
   let result = '', used = 0
   for (const token of text.match(/\x1b\[[0-9;]*m|[^]/gu) ?? []) {

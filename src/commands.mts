@@ -1,7 +1,7 @@
 import { t, type Language } from './i18n.mts'
 import { logLevels } from './logs.mts'
 
-export const VERSION = 'b1-Rc11'
+export const VERSION = 'b1-Rc12'
 export const commands = [
   { name: 'status', args: '[plugin]', description: 'Show Core and plugin state' },
   { name: 'debug', args: '[module]', description: 'Show all state details; add a module name to inspect it' },
